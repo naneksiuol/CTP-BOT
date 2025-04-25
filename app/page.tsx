@@ -65,6 +65,12 @@ export default function Home() {
                 Cyber Expected Move (CEM)
               </Link>
               <Link
+                href="/market-scanner"
+                className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-4 px-8 rounded hover:opacity-90 transition-opacity"
+              >
+                Cyber Market Scan
+              </Link>
+              <Link
                 href="/about"
                 className="bg-[#1a1f2d] text-white font-bold py-4 px-8 rounded border border-[#4facfe] hover:bg-[#2a2f3d] transition-colors"
               >
