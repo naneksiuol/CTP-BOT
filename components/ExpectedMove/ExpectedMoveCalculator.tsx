@@ -3,13 +3,17 @@
 import { useState, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Slider } from "@/components/ui/slider"
 import { Calculator, RefreshCw, Brain, ArrowRight } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { TickerInput } from "@/components/TickerInput"
+import { TickerPriceInput } from "./TickerPriceInput"
 
 export function ExpectedMoveCalculator() {
+  const [currentTicker, setCurrentTicker] = useState<string>("")
+  const [currentPrice, setCurrentPrice] = useState<number | null>(null)
   const [ticker, setTicker] = useState<string>("")
   const [price, setPrice] = useState<number | null>(null)
   const [volatility, setVolatility] = useState<number>(20)
@@ -18,13 +22,23 @@ export function ExpectedMoveCalculator() {
   const [lowerBound, setLowerBound] = useState<number | null>(null)
   const [upperBound, setUpperBound] = useState<number | null>(null)
   const [isCalculating, setIsCalculating] = useState<boolean>(false)
+  const [stockPrice, setStockPrice] = useState<string>("")
 
-  const handlePriceUpdate = useCallback((newPrice: number | null) => {
+  const handlePriceUpdate = (price: number, ticker: string) => {
+    setCurrentPrice(price)
+    setCurrentTicker(ticker)
+    setStockPrice(price.toString())
+    setPrice(price)
+  }
+
+  const handlePriceUpdateOld = useCallback((newPrice: number | null) => {
     setPrice(newPrice)
   }, [])
 
   const calculateExpectedMove = () => {
-    if (!price) {
+    const priceValue = stockPrice ? Number.parseFloat(stockPrice) : price
+
+    if (!priceValue) {
       alert("Please enter a valid ticker and fetch the current price.")
       return
     }
@@ -34,10 +48,11 @@ export function ExpectedMoveCalculator() {
     // Simulate AI processing delay
     setTimeout(() => {
       // CEM = Price × Volatility × √(DTE/365)
-      const move = price * (volatility / 100) * Math.sqrt(days / 365)
+      const move = priceValue * (volatility / 100) * Math.sqrt(days / 365)
       setExpectedMove(move)
-      setLowerBound(price - move)
-      setUpperBound(price + move)
+      setLowerBound(priceValue - move)
+      setUpperBound(priceValue + move)
+      setPrice(priceValue)
       setIsCalculating(false)
     }, 1000)
   }
@@ -49,6 +64,7 @@ export function ExpectedMoveCalculator() {
     setExpectedMove(null)
     setLowerBound(null)
     setUpperBound(null)
+    setStockPrice("")
   }
 
   return (
@@ -63,81 +79,104 @@ export function ExpectedMoveCalculator() {
             Calculate the expected price range for any asset using our proprietary AI-Implied Volatility model
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="ticker" className="text-gray-300">
-              Ticker Symbol
-            </Label>
-            <TickerInput onPriceUpdate={handlePriceUpdate} />
-          </div>
+        <CardContent>
+          <TickerPriceInput onPriceUpdate={handlePriceUpdate} />
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label htmlFor="volatility" className="text-gray-300">
-                AI-Implied Volatility (%)
-              </Label>
-              <span className="text-cyan-400">{volatility}%</span>
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <Label htmlFor="stockPrice" className="text-gray-300">
+                  Stock Price {currentTicker ? `(${currentTicker})` : ""}
+                </Label>
+                <Input
+                  id="stockPrice"
+                  type="number"
+                  value={stockPrice}
+                  onChange={(e) => setStockPrice(e.target.value)}
+                  className="bg-[rgba(10,14,23,0.5)] text-white border-cyan-500/20"
+                  placeholder="Enter price manually"
+                />
+              </div>
             </div>
-            <Slider
-              id="volatility"
-              min={1}
-              max={100}
-              step={0.1}
-              value={[volatility]}
-              onValueChange={(value) => setVolatility(value[0])}
-              className="py-4"
-            />
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>Low</span>
-              <span>Medium</span>
-              <span>High</span>
-            </div>
-          </div>
 
-          <div className="space-y-2">
-            <div className="flex justify-between">
-              <Label htmlFor="days" className="text-gray-300">
-                Days to Expiration
-              </Label>
-              <span className="text-cyan-400">{days} days</span>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="ticker" className="text-gray-300">
+                  Ticker Symbol
+                </Label>
+                <span className="text-cyan-400">{ticker}</span>
+              </div>
+              <TickerInput onPriceUpdate={handlePriceUpdateOld} />
             </div>
-            <Slider
-              id="days"
-              min={1}
-              max={365}
-              step={1}
-              value={[days]}
-              onValueChange={(value) => setDays(value[0])}
-              className="py-4"
-            />
-            <div className="flex justify-between text-xs text-gray-400">
-              <span>1 day</span>
-              <span>6 months</span>
-              <span>1 year</span>
-            </div>
-          </div>
 
-          <div className="flex space-x-2">
-            <Button
-              onClick={calculateExpectedMove}
-              disabled={isCalculating || !price}
-              className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
-            >
-              {isCalculating ? (
-                <>
-                  <Brain className="mr-2 h-4 w-4 animate-pulse" />
-                  Calculating...
-                </>
-              ) : (
-                <>
-                  <Calculator className="mr-2 h-4 w-4" />
-                  Calculate CEM
-                </>
-              )}
-            </Button>
-            <Button onClick={resetCalculator} variant="outline" className="border-cyan-500/20">
-              <RefreshCw className="h-4 w-4" />
-            </Button>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="volatility" className="text-gray-300">
+                  AI-Implied Volatility (%)
+                </Label>
+                <span className="text-cyan-400">{volatility}%</span>
+              </div>
+              <Slider
+                id="volatility"
+                min={1}
+                max={100}
+                step={0.1}
+                value={[volatility]}
+                onValueChange={(value) => setVolatility(value[0])}
+                className="py-4"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>Low</span>
+                <span>Medium</span>
+                <span>High</span>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="days" className="text-gray-300">
+                  Days to Expiration
+                </Label>
+                <span className="text-cyan-400">{days} days</span>
+              </div>
+              <Slider
+                id="days"
+                min={1}
+                max={365}
+                step={1}
+                value={[days]}
+                onValueChange={(value) => setDays(value[0])}
+                className="py-4"
+              />
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>1 day</span>
+                <span>6 months</span>
+                <span>1 year</span>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+              <Button
+                onClick={calculateExpectedMove}
+                disabled={isCalculating || (!price && !stockPrice)}
+                className="flex-1 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+              >
+                {isCalculating ? (
+                  <>
+                    <Brain className="mr-2 h-4 w-4 animate-pulse" />
+                    Calculating...
+                  </>
+                ) : (
+                  <>
+                    <Calculator className="mr-2 h-4 w-4" />
+                    Calculate CEM
+                  </>
+                )}
+              </Button>
+              <Button onClick={resetCalculator} variant="outline" className="border-cyan-500/20 bg-transparent">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -229,6 +268,7 @@ export function ExpectedMoveCalculator() {
               </p>
               <Button
                 onClick={calculateExpectedMove}
+                disabled={!price && !stockPrice}
                 className="mt-6 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-700"
               >
                 <ArrowRight className="mr-2 h-4 w-4" />

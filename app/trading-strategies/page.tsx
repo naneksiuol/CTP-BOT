@@ -18,8 +18,7 @@ export default function TradingStrategiesPage() {
         <div
           className="absolute inset-0 bg-center bg-no-repeat"
           style={{
-            backgroundImage:
-              'url("https://hebbkx1anhila5yf.public.blob.vercel-storage.com/Gemini_Generated_Image_pz9x71pz9x71pz9x.jpg-sqMt2vX0nnDh2Hw9U0HQVxUUEMA6Ri.jpeg")',
+            backgroundImage: 'url("/images/gemini-generated-image-pz9x71pz9x71pz9x.jpeg")',
             backgroundSize: "contain",
             backgroundPosition: "center center",
             height: "100%",
@@ -552,7 +551,7 @@ export default function TradingStrategiesPage() {
                         <Badge className="mt-2 bg-green-500/20 text-green-400">SELL PREMIUM</Badge>
                       </div>
                       <div className="bg-[rgba(10,14,23,0.5)] p-4 rounded-md">
-                        <h4 className="text-cyan-400 text-sm font-medium mb-2">{"When IV < Realized Volatility"}</h4>
+                        <h4 className="text-cyan-400 text-sm font-medium mb-2">When IV &lt; Realized Volatility</h4>
                         <p className="text-xs text-gray-300">
                           Implement debit strategies like long straddles, strangles, or calendar spreads to profit from
                           volatility expansion as options premiums increase.

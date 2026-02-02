@@ -3,7 +3,7 @@ import { togetherAIService } from "@/lib/together-ai-service"
 
 // Mock function to generate realistic looking prediction data
 function generateMockPredictions(ticker: string, currentPrice: number, direction: "up" | "down" | "neutral") {
-  const volatility = Math.random() * 5 + 1 // 1-6% volatility
+  const volatility = Math.random() * 3 + 1 // 1-4% volatility
   const confidence = Math.random() * 0.3 + 0.6 // 60-90% confidence
 
   // Calculate price movements based on direction and volatility
@@ -14,7 +14,10 @@ function generateMockPredictions(ticker: string, currentPrice: number, direction
         ? -Math.random() * volatility
         : (Math.random() - 0.5) * volatility * 0.5
 
-  const predictedPrice = currentPrice * (1 + changePercent / 100)
+  // Limit the change to be more realistic
+  const limitedChangePercent = Math.min(Math.abs(changePercent), 5) * (changePercent < 0 ? -1 : 1)
+
+  const predictedPrice = currentPrice * (1 + limitedChangePercent / 100)
   const nextDayChange =
     direction === "up" ? Math.random() * 1.5 : direction === "down" ? -Math.random() * 1.5 : (Math.random() - 0.5) * 0.8
   const fiveDayChange =
@@ -59,24 +62,27 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const ticker = searchParams.get("ticker")
   const modelType = (searchParams.get("model") as any) || "ensemble"
+  const basePriceParam = searchParams.get("basePrice")
 
   if (!ticker) {
     return NextResponse.json({ error: "Ticker parameter is required" }, { status: 400 })
   }
 
   try {
-    // Try to get current price data
-    let currentPrice = 100 // Default fallback price
+    // Use provided basePrice or fetch current price data
+    let currentPrice = basePriceParam ? Number.parseFloat(basePriceParam) : 100
     let direction: "up" | "down" | "neutral" = "neutral"
 
-    try {
-      const priceData = await togetherAIService.fetchTickerPrice(ticker)
-      if (priceData.success) {
-        currentPrice = priceData.price
+    if (!basePriceParam) {
+      try {
+        const priceData = await togetherAIService.fetchTickerPrice(ticker)
+        if (priceData.success) {
+          currentPrice = priceData.price
+        }
+      } catch (priceError) {
+        console.error("Error fetching price data:", priceError)
+        // Continue with default price
       }
-    } catch (priceError) {
-      console.error("Error fetching price data:", priceError)
-      // Continue with default price
     }
 
     // Try to get sentiment analysis, but handle rate limit errors
@@ -131,6 +137,7 @@ export async function GET(request: Request) {
     return NextResponse.json({
       ticker,
       modelType,
+      currentPrice,
       predictions,
       sentimentAnalysis: sentiment,
       sentimentEnhancedPredictions,
@@ -139,19 +146,22 @@ export async function GET(request: Request) {
   } catch (error) {
     console.error("Error in advanced prediction:", error)
 
+    // Get base price from param or generate a consistent one
+    const basePrice = basePriceParam ? Number.parseFloat(basePriceParam) : 100
+
     // Provide fallback data even on error
     const fallbackDirection = getRandomDirection()
     return NextResponse.json({
       ticker,
       modelType,
       error: "Failed to generate advanced prediction, using fallback data.",
-      predictions: generateMockPredictions(ticker, 100, fallbackDirection),
+      predictions: generateMockPredictions(ticker, basePrice, fallbackDirection),
       sentimentAnalysis: {
         sentiment: fallbackDirection === "up" ? "bullish" : fallbackDirection === "down" ? "bearish" : "neutral",
         confidence: 0.5,
         analysis: "Fallback analysis due to API error.",
       },
-      multiTimeframePredictions: generateMultiTimeframePredictions(ticker, 100, fallbackDirection),
+      multiTimeframePredictions: generateMultiTimeframePredictions(ticker, basePrice, fallbackDirection),
     })
   }
 }

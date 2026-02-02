@@ -1,6 +1,6 @@
 import type React from "react"
 import Link from "next/link"
-import { Brain, Clock, ShieldCheck, Globe, BarChart2, Zap, Award, Activity, Search } from "lucide-react"
+import { Brain, Clock, ShieldCheck, Globe, BarChart2, Zap, Award, Activity } from "lucide-react"
 
 export default function Home() {
   return (
@@ -13,9 +13,6 @@ export default function Home() {
           <Link href="/dashboard" className="text-white hover:text-[#4facfe] transition-colors">
             ML Dashboard
           </Link>
-          <Link href="/market-scanner" className="text-white hover:text-[#4facfe] transition-colors">
-            Market Scanner
-          </Link>
           <Link href="/trading-strategies" className="text-white hover:text-[#4facfe] transition-colors">
             Trading Strategies
           </Link>
@@ -27,6 +24,9 @@ export default function Home() {
           </Link>
           <Link href="/university" className="text-white hover:text-[#4facfe] transition-colors">
             University
+          </Link>
+          <Link href="/trade-assistant" className="text-white hover:text-[#4facfe] transition-colors">
+            Trade Assistant
           </Link>
           <Link href="/about" className="text-white hover:text-[#4facfe] transition-colors">
             About
@@ -63,12 +63,6 @@ export default function Home() {
                 className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-4 px-8 rounded hover:opacity-90 transition-opacity"
               >
                 Cyber Expected Move (CEM)
-              </Link>
-              <Link
-                href="/market-scanner"
-                className="bg-gradient-to-r from-purple-500 to-blue-600 text-white font-bold py-4 px-8 rounded hover:opacity-90 transition-opacity"
-              >
-                Cyber Market Scan
               </Link>
               <Link
                 href="/about"
@@ -158,11 +152,6 @@ export default function Home() {
             icon={<Globe className="w-10 h-10 text-[#4facfe]" />}
             title="Global Coverage"
             description="Stocks, forex, and cryptocurrencies worldwide"
-          />
-          <FeatureCard
-            icon={<Search className="w-10 h-10 text-[#4facfe]" />}
-            title="Market Scanner"
-            description="Scan markets for technical patterns, setups, and trading opportunities"
           />
         </section>
 

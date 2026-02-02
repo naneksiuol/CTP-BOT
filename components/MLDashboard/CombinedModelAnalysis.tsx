@@ -40,6 +40,9 @@ export function CombinedModelAnalysis() {
   const [result, setResult] = useState<CombinedResult | null>(null)
   const [error, setError] = useState<string | null>(null)
 
+  // Define the model types
+  const modelTypes = ["lstm", "gru", "ensemble", "statistical"]
+
   // Update the runAllModels function to handle API rate limit errors better
   const runAllModels = async () => {
     if (!ticker) {
@@ -50,10 +53,12 @@ export function CombinedModelAnalysis() {
     setIsLoading(true)
     setError(null)
 
+    // Initialize an array to store the results from each model
+    const results: any[] = []
+
     try {
-      // Call the API for each model type with retry logic
-      const modelTypes = ["lstm", "gru", "ensemble", "statistical"]
-      const results = []
+      // Get a consistent base price for this ticker
+      const basePrice = generateConsistentPrice(ticker)
 
       // Process models sequentially instead of in parallel to avoid rate limits
       for (const model of modelTypes) {
@@ -74,7 +79,7 @@ export function CombinedModelAnalysis() {
               }
 
               const response = await fetch(
-                `/api/ai/advanced-prediction?ticker=${encodeURIComponent(ticker)}&model=${model}`,
+                `/api/ai/advanced-prediction?ticker=${encodeURIComponent(ticker)}&model=${model}&basePrice=${basePrice}`,
               )
 
               if (response.status === 429) {
@@ -476,11 +481,11 @@ ${window.location.origin}
 
   // Generate a fallback prediction when API calls fail
   const generateFallbackPrediction = (model: string, ticker: string) => {
-    // Generate a random price around a base value (we'll use 100 as default)
-    const basePrice = 100
-    // Different models have slightly different predictions
-    const priceVariation = model === "lstm" ? 0.95 : model === "gru" ? 1.05 : model === "ensemble" ? 1.1 : 0.98
+    // Get a consistent base price for this ticker
+    const basePrice = generateConsistentPrice(ticker)
 
+    // Different models have slightly different predictions but based on same price
+    const priceVariation = model === "lstm" ? 0.98 : model === "gru" ? 1.02 : model === "ensemble" ? 1.01 : 0.99
     const predictedPrice = basePrice * priceVariation
 
     // Random direction with bias based on model
@@ -499,6 +504,13 @@ ${window.location.origin}
         confidence: Math.random() * 0.3 + 0.5, // 0.5-0.8 confidence
       },
     }
+  }
+
+  // Generate a random price for fallback
+  const generateConsistentPrice = (ticker: string) => {
+    // Use a simple hash of the ticker to get a consistent base price
+    const basePrice = (ticker.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) % 900) + 100
+    return basePrice
   }
 
   // Generate a random price for fallback
