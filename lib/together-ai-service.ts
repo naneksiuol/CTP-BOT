@@ -125,7 +125,7 @@ export class TogetherAIService {
     return `Explanation of the ${pattern} pattern.`
   }
 
-  // Fetch real-time ticker price using Alpha Vantage API
+  // Fetch real-time ticker price using Yahoo Finance API
   async fetchTickerPrice(ticker: string): Promise<{
     price: number
     change: number
@@ -136,42 +136,48 @@ export class TogetherAIService {
     success: boolean
   }> {
     try {
-      const apiKey = process.env.ALPHA_VANTAGE_API_KEY
+      // Use Yahoo Finance API for real-time stock data
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=1d`
       
-      if (!apiKey) {
-        console.warn("Alpha Vantage API key not found, using fallback data")
+      console.log(`[v0] Fetching real price for ${ticker} from Yahoo Finance...`)
+      
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        }
+      })
+      
+      if (!response.ok) {
+        console.warn(`[v0] Yahoo Finance API returned status ${response.status} for ${ticker}`)
         return this.getFallbackPrice(ticker)
       }
-
-      // Use Alpha Vantage Global Quote endpoint for real-time data
-      const url = `https://www.alphavantage.co/query?function=GLOBAL_QUOTE&symbol=${ticker}&apikey=${apiKey}`
       
-      const response = await fetch(url)
       const data = await response.json()
 
       // Check if we got valid data
-      if (data["Global Quote"] && Object.keys(data["Global Quote"]).length > 0) {
-        const quote = data["Global Quote"]
-        const price = parseFloat(quote["05. price"])
-        const change = parseFloat(quote["09. change"])
-        const changePercent = parseFloat(quote["10. change percent"].replace("%", ""))
-        const high = parseFloat(quote["03. high"])
-        const low = parseFloat(quote["04. low"])
-        const volume = parseFloat(quote["06. volume"])
+      if (data?.chart?.result?.[0]?.meta) {
+        const meta = data.chart.result[0].meta
+        const price = meta.regularMarketPrice || meta.previousClose
+        const previousClose = meta.chartPreviousClose || meta.previousClose
+        const change = price - previousClose
+        const changePercent = (change / previousClose) * 100
+        const high = meta.regularMarketDayHigh || price * 1.02
+        const low = meta.regularMarketDayLow || price * 0.98
+        const volume = meta.regularMarketVolume || 1000000
 
-        console.log(`[v0] Fetched real price for ${ticker}: $${price}`)
+        console.log(`[v0] ✓ Fetched real price for ${ticker}: $${price.toFixed(2)} (${changePercent >= 0 ? '+' : ''}${changePercent.toFixed(2)}%)`)
 
         return {
-          price,
-          change,
-          changePercent,
-          high,
-          low,
-          volume,
+          price: Number(price.toFixed(2)),
+          change: Number(change.toFixed(2)),
+          changePercent: Number(changePercent.toFixed(2)),
+          high: Number(high.toFixed(2)),
+          low: Number(low.toFixed(2)),
+          volume: Math.floor(volume),
           success: true,
         }
       } else {
-        console.warn(`[v0] No data returned from Alpha Vantage for ${ticker}, using fallback`)
+        console.warn(`[v0] No valid data returned from Yahoo Finance for ${ticker}, using fallback`)
         return this.getFallbackPrice(ticker)
       }
     } catch (error) {
