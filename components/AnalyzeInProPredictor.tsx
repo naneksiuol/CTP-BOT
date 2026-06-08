@@ -259,7 +259,7 @@ export function AnalyzeInProPredictor() {
 
               <div className="bg-[rgba(10,14,23,0.5)] p-3 rounded-md mb-6">
                 <p className="text-gray-400 text-sm mb-1">Market Condition</p>
-                <p className="text-gray-300">{result.marketConditionContext || "No market context available"}</p>
+                <p className="text-gray-300">{result.marketCondition || "No market context available"}</p>
               </div>
 
               <Button

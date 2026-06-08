@@ -63,6 +63,7 @@ type AnalysisResult = {
   explanation: string
   recentPerformance: string
   marketConditionContext: string
+  marketCondition?: string
   mtfc: Record<string, string>
   expectedGain: number
   targetPrice: number
@@ -128,7 +129,7 @@ export default function TickerAnalysis() {
         id: `${ticker}-${Date.now()}`,
         ticker,
         isLoading: true,
-      })),
+      } as any)),
     )
 
     try {
@@ -158,7 +159,7 @@ export default function TickerAnalysis() {
         fetchAIInsights(data[0].ticker)
 
         // Initialize expanded state for new results
-        const newExpandedState = {}
+        const newExpandedState: Record<string, boolean> = {}
         data.forEach((result: AnalysisResult) => {
           newExpandedState[`${result.ticker}-${Date.now()}`] = false
         })

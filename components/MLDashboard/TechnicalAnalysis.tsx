@@ -167,7 +167,7 @@ export function TechnicalAnalysis() {
       })
 
       // Combine indicators
-      const indicators = {}
+      const indicators: Record<string, { value: number; action: string }> = {}
       scaledMovingAverages.forEach((ma) => {
         indicators[ma.name] = { value: ma.value, action: ma.action }
       })

@@ -224,7 +224,7 @@ export function ExpectedMoveCalculator() {
                   ></div>
                   <div
                     className="absolute w-2 h-2 rounded-full bg-white -mt-0.5"
-                    style={{ left: `${(price / (price * 2)) * 100}%` }}
+                    style={{ left: `${((price ?? 0) / ((price ?? 1) * 2)) * 100}%` }}
                   ></div>
                 </div>
                 <div className="flex justify-between mt-2 text-xs text-gray-400">
