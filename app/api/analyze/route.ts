@@ -31,9 +31,10 @@ function generateMockData(ticker: string, strategyType: string) {
   }
 
   // Determine a realistic current price
+  const tickerPricesMap: Record<string, number> = tickerPrices
   let currentPrice
-  if (ticker in tickerPrices) {
-    currentPrice = tickerPrices[ticker]
+  if (ticker in tickerPricesMap) {
+    currentPrice = tickerPricesMap[ticker]
   } else {
     // For unknown tickers, generate a reasonable price
     // Most stocks are between $10 and $500
@@ -57,7 +58,7 @@ function generateMockData(ticker: string, strategyType: string) {
   // Generate MTFC data
   const timeframes = strategyType === "short-term" ? ["5m", "15m", "30m", "1h", "4h"] : ["30m", "1h", "4h", "1d", "1w"]
 
-  const mtfc = {}
+  const mtfc: Record<string, string> = {}
   timeframes.forEach((tf) => {
     mtfc[tf] = Math.random() > 0.5 ? "bullish" : "bearish"
   })

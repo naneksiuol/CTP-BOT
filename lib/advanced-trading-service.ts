@@ -59,7 +59,7 @@ export class AdvancedTradingService {
         dates,
         prices,
         volumes,
-        features: [],
+        features: {} as Record<string, number[]>,
       }
     } catch (error) {
       console.error(`Error fetching historical data for ${ticker}:`, error)

@@ -97,7 +97,7 @@ export async function GET(request: Request) {
       sentiment = await togetherAIService.analyzeMarketSentiment(ticker)
       // Determine direction based on sentiment
       direction = sentiment.sentiment === "bullish" ? "up" : sentiment.sentiment === "bearish" ? "down" : "neutral"
-    } catch (sentimentError) {
+    } catch (sentimentError: any) {
       console.error("Error with sentiment analysis, using fallback:", sentimentError)
 
       // Check if it's a rate limit error
