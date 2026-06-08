@@ -131,64 +131,57 @@ export class AdvancedTradingService {
         // Continue with default price
       }
 
-      // Generate prediction based on different model types
-      let volatility = Math.random() * 4 + 1 // 1-5% volatility
-      let confidence = 0.65
+      // Fetch 3-month daily data to compute real indicators
+      let closes: number[] = []
+      try {
+        const histRes = await fetch(
+          `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=3mo`,
+          { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 60 } } as RequestInit,
+        )
+        if (histRes.ok) {
+          const histData = await histRes.json()
+          const q = histData.chart?.result?.[0]?.indicators?.quote?.[0]
+          if (q?.close) closes = (q.close as (number | null)[]).filter((v): v is number => v !== null)
+        }
+      } catch { /* use empty, fall back to currentPrice */ }
 
-      // Adjust parameters based on model type for "realistic" differences
-      switch (modelType) {
-        case "lstm":
-          confidence = Math.random() * 0.2 + 0.7 // 70-90% confidence
-          volatility = Math.random() * 3 + 1 // 1-4%
-          break
-        case "gru":
-          confidence = Math.random() * 0.25 + 0.65 // 65-90% confidence
-          volatility = Math.random() * 3.5 + 1 // 1-4.5%
-          break
-        case "ensemble":
-          confidence = Math.random() * 0.15 + 0.75 // 75-90% confidence
-          volatility = Math.random() * 2.5 + 1 // 1-3.5%
-          break
-        case "statistical":
-          confidence = Math.random() * 0.3 + 0.6 // 60-90% confidence
-          volatility = Math.random() * 3 + 2 // 2-5%
-          break
+      // Compute real ATR-like volatility from recent close-to-close moves
+      let volatility = 2 // default 2%
+      if (closes.length >= 5) {
+        const diffs = closes.slice(-20).map((v, i, arr) => (i === 0 ? 0 : Math.abs(v - arr[i - 1]) / arr[i - 1] * 100))
+        volatility = diffs.slice(1).reduce((s, v) => s + v, 0) / (diffs.length - 1)
       }
 
-      // Calculate price movements based on direction and volatility
-      const changePercent =
-        priceMovement === "up"
-          ? Math.random() * volatility
-          : priceMovement === "down"
-            ? -Math.random() * volatility
-            : (Math.random() - 0.5) * volatility * 0.5
+      // Model-type confidence adjustments (deterministic offsets, no random)
+      let confidenceBase = 0.65
+      switch (modelType) {
+        case "lstm": confidenceBase = 0.75; break
+        case "gru": confidenceBase = 0.70; break
+        case "ensemble": confidenceBase = 0.80; break
+        case "statistical": confidenceBase = 0.65; break
+      }
 
-      const predictedPrice = currentPrice * (1 + changePercent / 100)
-      const nextDayChange =
-        priceMovement === "up"
-          ? Math.random() * 1.5
-          : priceMovement === "down"
-            ? -Math.random() * 1.5
-            : (Math.random() - 0.5) * 0.8
-      const fiveDayChange =
-        priceMovement === "up"
-          ? nextDayChange * 2.5
-          : priceMovement === "down"
-            ? nextDayChange * 2.5
-            : nextDayChange * 1.2
-      const nextDayPrice = currentPrice * (1 + nextDayChange / 100)
-      const fiveDayPrice = currentPrice * (1 + fiveDayChange / 100)
+      // Confidence boosted by how clear the trend is
+      const trendStrength = closes.length >= 10
+        ? Math.abs(closes[closes.length - 1] - closes[closes.length - 10]) / closes[closes.length - 10]
+        : 0
+      const confidence = Math.min(confidenceBase + trendStrength * 2, 0.93)
 
-      // Support and resistance levels
-      const supportLevels = [
-        currentPrice * (1 - (Math.random() * 2 + 3) / 100),
-        currentPrice * (1 - (Math.random() * 2 + 5) / 100),
-      ]
+      // Predicted price: extrapolate one-day momentum
+      const momentumPct = closes.length >= 2
+        ? (closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2]
+        : 0
+      const changePercent = priceMovement === "neutral" ? momentumPct * 0.5 : momentumPct
+      const predictedPrice = currentPrice * (1 + changePercent)
+      const nextDayPrice = currentPrice * (1 + changePercent * 0.8)
+      const fiveDayPrice = currentPrice * (1 + changePercent * 3)
 
-      const resistanceLevels = [
-        currentPrice * (1 + (Math.random() * 2 + 3) / 100),
-        currentPrice * (1 + (Math.random() * 2 + 5) / 100),
-      ]
+      // Support: recent N-day low; resistance: recent N-day high
+      const recentCloses = closes.length >= 20 ? closes.slice(-20) : closes
+      const recentLow = Math.min(...recentCloses)
+      const recentHigh = Math.max(...recentCloses)
+      const supportLevels = [recentLow, recentLow * 0.97]
+      const resistanceLevels = [recentHigh, recentHigh * 1.03]
 
       return {
         predictedPrice,
@@ -260,53 +253,72 @@ export class AdvancedTradingService {
       }
     }
 
+    // Fetch 3-month daily closes for timeframe scaling
+    let closes: number[] = []
+    try {
+      const histRes = await fetch(
+        `https://query1.finance.yahoo.com/v8/finance/chart/${ticker}?interval=1d&range=3mo`,
+        { headers: { "User-Agent": "Mozilla/5.0" }, next: { revalidate: 60 } } as RequestInit,
+      )
+      if (histRes.ok) {
+        const histData = await histRes.json()
+        const q = histData.chart?.result?.[0]?.indicators?.quote?.[0]
+        if (q?.close) closes = (q.close as (number | null)[]).filter((v): v is number => v !== null)
+      }
+    } catch { /* use empty array */ }
+
     for (const timeframe of timeframes) {
       try {
         const basePrice = basePrediction.predictedPrice
         const direction = basePrediction.predictedDirection
 
-        // Calculate different volatilities based on timeframe
-        const volatilityMultiplier =
-          timeframe === "1d" ? 1 : timeframe === "5d" ? 2.2 : timeframe === "1mo" ? 3.5 : timeframe === "3mo" ? 5.5 : 1
+        // Scale days for each timeframe
+        const scaleDays =
+          timeframe === "1d" ? 1 : timeframe === "5d" ? 5 : timeframe === "1mo" ? 21 : timeframe === "3mo" ? 63 : 1
 
-        const volatility = (Math.random() * 3 + 2) * volatilityMultiplier // Higher volatility for longer timeframes
+        // Compute annualised daily volatility from real close-to-close returns
+        let dailyVol = 0.015 // fallback 1.5% daily vol
+        if (closes.length >= 10) {
+          const rets = closes.slice(-30).map((v, i, arr) =>
+            i === 0 ? 0 : Math.abs(v - arr[i - 1]) / arr[i - 1],
+          )
+          dailyVol = rets.slice(1).reduce((s, v) => s + v, 0) / (rets.length - 1)
+        }
 
-        // Calculate price movements based on direction and volatility
-        const changePercent =
-          direction === "up"
-            ? Math.random() * volatility
-            : direction === "down"
-              ? -Math.random() * volatility
-              : (Math.random() - 0.5) * volatility * 0.5
+        // Scale volatility by sqrt of trading days
+        const scaledVolPct = dailyVol * Math.sqrt(scaleDays) * 100
 
-        const predictedPrice = basePrice * (1.0 + changePercent / 100)
+        // Momentum extrapolated over scaleDays
+        const momentumPct = closes.length >= 2
+          ? (closes[closes.length - 1] - closes[closes.length - 2]) / closes[closes.length - 2]
+          : 0
+        const scaledMomentum = momentumPct * scaleDays * 0.3 // dampened projection
+        const changePercent = direction === "neutral" ? 0 : scaledMomentum
 
-        // Adjust confidence based on timeframe
+        const predictedPrice = basePrice * (1.0 + changePercent)
+
+        // Confidence degrades deterministically with timeframe
         const confidenceModifier =
-          timeframe === "1d"
-            ? 0.0
-            : timeframe === "5d"
-              ? -0.05
-              : timeframe === "1mo"
-                ? -0.12
-                : timeframe === "3mo"
-                  ? -0.2
-                  : 0
+          timeframe === "1d" ? 0.0
+          : timeframe === "5d" ? -0.05
+          : timeframe === "1mo" ? -0.12
+          : timeframe === "3mo" ? -0.2
+          : 0
+
+        // Support/resistance from recent N-day extremes scaled per timeframe
+        const window = Math.min(scaleDays * 2, closes.length)
+        const slice = closes.length > 0 ? closes.slice(-window) : [basePrice]
+        const lo = Math.min(...slice)
+        const hi = Math.max(...slice)
 
         const prediction: PredictionResult = {
           predictedPrice,
           predictedDirection: direction,
           confidence: Math.max(0.5, basePrediction.confidence + confidenceModifier),
           nextDayPrediction: basePrediction.nextDayPrediction,
-          supportLevels: [
-            basePrice * (1 - (Math.random() * 2 + 3 * volatilityMultiplier) / 100),
-            basePrice * (1 - (Math.random() * 2 + 5 * volatilityMultiplier) / 100),
-          ],
-          resistanceLevels: [
-            basePrice * (1 + (Math.random() * 2 + 3 * volatilityMultiplier) / 100),
-            basePrice * (1 + (Math.random() * 2 + 5 * volatilityMultiplier) / 100),
-          ],
-          volatilityPrediction: volatility,
+          supportLevels: [lo, lo * (1 - dailyVol)],
+          resistanceLevels: [hi, hi * (1 + dailyVol)],
+          volatilityPrediction: scaledVolPct,
         }
 
         results[timeframe] = prediction

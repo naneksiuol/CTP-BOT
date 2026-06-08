@@ -1,12 +1,28 @@
 // Simplified version of the service to avoid potential issues
 export class TogetherAIService {
   private apiKey: string
-  private baseUrl = "https://api.together.xyz/v1"
+  private baseUrl: string
+  private model: string
 
   constructor() {
-    this.apiKey = process.env.CYBER_TRADER_PRO || ""
-    if (!this.apiKey) {
-      console.warn("Together AI API key not found. Please set the CYBER_TRADER_PRO environment variable.")
+    // Use Together AI key if available, otherwise fall back to DeepSeek
+    const togetherKey = process.env.CYBER_TRADER_PRO || ""
+    const deepseekKey = process.env.DEEPSEEK_API_KEY || ""
+
+    if (togetherKey) {
+      this.apiKey = togetherKey
+      this.baseUrl = "https://api.together.xyz/v1"
+      this.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    } else if (deepseekKey) {
+      this.apiKey = deepseekKey
+      this.baseUrl = "https://api.deepseek.com/v1"
+      this.model = "deepseek-chat"
+      console.log("Together AI key not found. Using DeepSeek as AI provider.")
+    } else {
+      this.apiKey = ""
+      this.baseUrl = "https://api.together.xyz/v1"
+      this.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+      console.warn("No AI API key found. Using fallback responses.")
     }
   }
 
@@ -125,7 +141,6 @@ export class TogetherAIService {
     return `Explanation of the ${pattern} pattern.`
   }
 
-  // Update the fetchTickerPrice method with current prices as of April 2024
   async fetchTickerPrice(ticker: string): Promise<{
     price: number
     change: number
@@ -135,68 +150,55 @@ export class TogetherAIService {
     volume: number
     success: boolean
   }> {
-    // Updated price mapping for common tickers with current prices (April 2024)
-    const tickerPrices = {
-      SPY: 496.48, // Updated to current price
-      QQQ: 431.53,
-      AAPL: 169.3,
-      MSFT: 406.32,
-      GOOGL: 153.94,
-      AMZN: 178.15,
-      TSLA: 171.05,
-      META: 493.5,
-      NVDA: 881.86,
-      "BTC-USD": 63500.0,
-      "ETH-USD": 3070.0,
-      DIA: 383.65, // Dow Jones ETF
-      IWM: 198.76, // Russell 2000 ETF
-      XLF: 39.85, // Financial Sector ETF
-      XLE: 91.42, // Energy Sector ETF
-      XLK: 204.15, // Technology Sector ETF
-      XLV: 139.15, // Healthcare Sector ETF
-      XLI: 114.15, // Industrial Sector ETF
-      XLP: 73.15, // Consumer Staples ETF
-      XLY: 178.25, // Consumer Discretionary ETF
-      XLU: 63.85, // Utilities Sector ETF
-      XLB: 91.75, // Materials Sector ETF
-      SOXX: 212.35, // Semiconductor ETF
-      SMH: 212.35, // Semiconductor ETF
-    }
-
-    // Check if we have a predefined price for this ticker
-    const tickerPricesMap: Record<string, number> = tickerPrices
-    if (ticker in tickerPricesMap) {
-      const basePrice = tickerPricesMap[ticker]
-      const change = (Math.random() * 2 - 1) * basePrice * 0.01 // -1% to +1% change
+    try {
+      const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(ticker)}?interval=1d&range=1d`
+      const res = await fetch(url, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        next: { revalidate: 60 },
+      } as RequestInit)
+      if (!res.ok) throw new Error(`Yahoo Finance error: ${res.status}`)
+      const data = await res.json()
+      const meta = data.chart.result[0].meta
+      const price: number = meta.regularMarketPrice
+      const prevClose: number = meta.previousClose || meta.chartPreviousClose || price
+      const change = price - prevClose
+      const changePercent = (change / prevClose) * 100
       return {
-        price: basePrice,
-        change: change,
-        changePercent: (change / basePrice) * 100,
-        high: basePrice + Math.random() * basePrice * 0.01,
-        low: basePrice - Math.random() * basePrice * 0.01,
-        volume: Math.floor(Math.random() * 10000000) + 1000000,
+        price,
+        change,
+        changePercent,
+        high: meta.regularMarketDayHigh || price,
+        low: meta.regularMarketDayLow || price,
+        volume: meta.regularMarketVolume || 0,
         success: true,
       }
-    }
-
-    // For other tickers, generate a reasonable price
-    // Most stocks are between $10 and $500
-    const basePrice = Math.random() * 490 + 10
-    const change = (Math.random() * 2 - 1) * basePrice * 0.01
-
-    return {
-      price: basePrice,
-      change: change,
-      changePercent: (change / basePrice) * 100,
-      high: basePrice + Math.random() * basePrice * 0.01,
-      low: basePrice - Math.random() * basePrice * 0.01,
-      volume: Math.floor(Math.random() * 10000000) + 1000000,
-      success: true,
+    } catch (error) {
+      console.error(`Failed to fetch price for ${ticker}:`, error)
+      return {
+        price: 0,
+        change: 0,
+        changePercent: 0,
+        high: 0,
+        low: 0,
+        volume: 0,
+        success: false,
+      }
     }
   }
 
-  async generateText(prompt: string, model = "mistralai/Mixtral-8x7B-Instruct-v0.1", maxRetries = 2): Promise<string> {
-    return "Simplified text generation."
+  async generateText(prompt: string, model?: string, maxRetries = 2): Promise<string> {
+    if (!this.apiKey) return "Simplified text generation."
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: model || this.model, messages: [{ role: "user", content: prompt }], max_tokens: 512, temperature: 0.3 }),
+      })
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || "No response."
+    } catch {
+      return "Simplified text generation."
+    }
   }
 }
 

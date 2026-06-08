@@ -4,13 +4,16 @@ import { togetherAIService } from "@/lib/together-ai-service"
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const ticker = searchParams.get("ticker")
+  const priceParam = searchParams.get("price")
 
   if (!ticker) {
     return NextResponse.json({ error: "Ticker parameter is required" }, { status: 400 })
   }
 
+  const price = priceParam ? parseFloat(priceParam) : 0
+
   try {
-    const result = await togetherAIService.generateTradingInsights(ticker)
+    const result = await togetherAIService.getTradingInsights(ticker, price)
     return NextResponse.json({
       ticker,
       ...result,
