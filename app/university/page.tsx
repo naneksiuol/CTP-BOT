@@ -452,7 +452,7 @@ const courses: Course[] = [
   },
 ]
 
-const resources = [
+const resources: Resource[] = [
   {
     title: "Technical Indicator Cheatsheet",
     description: "Quick reference guide for all major technical indicators",

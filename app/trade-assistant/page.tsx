@@ -13,7 +13,7 @@ export default function TradeAssistantPage() {
   const [selectedModel, setSelectedModel] = useState("openai")
 
   // New state variable to hold the results of the Deep Infra test
-  const [deepInfraTestResult, setDeepInfraTestResult] = useState(null)
+  const [deepInfraTestResult, setDeepInfraTestResult] = useState<{ success: boolean; error?: string } | null>(null)
 
   // Function to test the Deep Infra API and display the result
   const testDeepInfraAPI = async () => {
@@ -23,7 +23,7 @@ export default function TradeAssistantPage() {
       setDeepInfraTestResult(data)
     } catch (error) {
       console.error("Error testing Deep Infra API:", error)
-      setDeepInfraTestResult({ success: false, error: error.message })
+      setDeepInfraTestResult({ success: false, error: error instanceof Error ? error.message : String(error) })
     }
   }
 
