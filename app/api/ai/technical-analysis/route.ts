@@ -3,7 +3,7 @@ import { togetherAIService } from "@/lib/together-ai-service"
 
 export async function POST(request: Request) {
   try {
-    const { ticker, currentPrice, indicators } = await request.json()
+    const { ticker, currentPrice, indicators, mtfc } = await request.json()
 
     if (!ticker || !currentPrice || !indicators) {
       return NextResponse.json({ error: "Missing required parameters" }, { status: 400 })
@@ -12,7 +12,7 @@ export async function POST(request: Request) {
     let result
 
     try {
-      result = await togetherAIService.analyzeTechnicalIndicators(ticker, indicators, currentPrice)
+      result = await togetherAIService.analyzeTechnicalIndicators(ticker, indicators, currentPrice, mtfc)
     } catch (aiError) {
       console.error("AI service error in technical analysis:", aiError)
 
