@@ -1,12 +1,28 @@
 // Simplified version of the service to avoid potential issues
 export class TogetherAIService {
   private apiKey: string
-  private baseUrl = "https://api.together.xyz/v1"
+  private baseUrl: string
+  private model: string
 
   constructor() {
-    this.apiKey = process.env.CYBER_TRADER_PRO || ""
-    if (!this.apiKey) {
-      console.warn("Together AI API key not found. Please set the CYBER_TRADER_PRO environment variable.")
+    // Use Together AI key if available, otherwise fall back to DeepSeek
+    const togetherKey = process.env.CYBER_TRADER_PRO || ""
+    const deepseekKey = process.env.DEEPSEEK_API_KEY || ""
+
+    if (togetherKey) {
+      this.apiKey = togetherKey
+      this.baseUrl = "https://api.together.xyz/v1"
+      this.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+    } else if (deepseekKey) {
+      this.apiKey = deepseekKey
+      this.baseUrl = "https://api.deepseek.com/v1"
+      this.model = "deepseek-chat"
+      console.log("Together AI key not found. Using DeepSeek as AI provider.")
+    } else {
+      this.apiKey = ""
+      this.baseUrl = "https://api.together.xyz/v1"
+      this.model = "meta-llama/Llama-3.3-70B-Instruct-Turbo"
+      console.warn("No AI API key found. Using fallback responses.")
     }
   }
 
@@ -170,8 +186,19 @@ export class TogetherAIService {
     }
   }
 
-  async generateText(prompt: string, model = "mistralai/Mixtral-8x7B-Instruct-v0.1", maxRetries = 2): Promise<string> {
-    return "Simplified text generation."
+  async generateText(prompt: string, model?: string, maxRetries = 2): Promise<string> {
+    if (!this.apiKey) return "Simplified text generation."
+    try {
+      const res = await fetch(`${this.baseUrl}/chat/completions`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${this.apiKey}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ model: model || this.model, messages: [{ role: "user", content: prompt }], max_tokens: 512, temperature: 0.3 }),
+      })
+      const data = await res.json()
+      return data.choices?.[0]?.message?.content || "No response."
+    } catch {
+      return "Simplified text generation."
+    }
   }
 }
 
